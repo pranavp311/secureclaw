@@ -1,0 +1,52 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+dist/
+build/
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Cactus SDK (local dependency, not tracked)
+cactus/
+
+# Model weights (large binary files)
+*.weights
+*.gguf
+*.bin
+
+# Compiled shared libraries
+*.so
+*.dylib
+*.a
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Tool configs
+.claude/
+.windsurf/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Frontend build artifacts & deps
+web/node_modules/
+agent/static/
+mobile/node_modules/
+
+# Agent workspace (user data)
+~/agent-workspace/
+
+# Misc
+profile.txt

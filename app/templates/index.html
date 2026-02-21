@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SecureClaw</title>
+    <link rel="stylesheet" href="/static/css/style.css" />
+  </head>
+  <body>
+    <!-- Dot background canvas -->
+    <canvas id="bg-canvas"></canvas>
+
+    <!-- Logo header -->
+    <header>
+      <div class="logo">Secure<span>Claw</span></div>
+      <div class="tagline">Private AI inference, by default</div>
+    </header>
+
+    <!-- Chat -->
+    <main>
+      <div id="empty-state">
+        <p>
+          Every task is analysed on-device for confidentiality and efficiency.
+          You choose whether it runs locally or in the cloud.
+        </p>
+        <div class="hint">Type a task below to get started</div>
+      </div>
+      <div id="messages"></div>
+    </main>
+
+    <!-- Input -->
+    <footer>
+      <div class="input-wrap">
+        <textarea
+          id="input"
+          rows="1"
+          placeholder="Describe your task..."
+        ></textarea>
+        <button id="send-btn" onclick="send()" aria-label="Send">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M12 19V5M5 12l7-7 7 7" />
+          </svg>
+        </button>
+      </div>
+    </footer>
+
+    <script src="/static/js/dots.js"></script>
+    <script src="/static/js/app.js"></script>
+  </body>
+</html>
