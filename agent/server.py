@@ -191,6 +191,34 @@ def process_chat(
         else:
             result = generate_hybrid(messages, tools)
 
+    # Post-process: remap set_alarm → create_reminder when query is about
+    # calendar events, reminders, or tasks (FunctionGemma often confuses them)
+    _REMINDER_WORDS = {"calendar", "event", "remind", "reminder", "task", "schedule"}
+    lower_msg = user_message.lower()
+    if any(w in lower_msg for w in _REMINDER_WORDS):
+        for fc in result.get("function_calls", []):
+            if fc.get("name") == "set_alarm":
+                # Parse time directly from user query (more reliable than model output)
+                time_match = re.search(
+                    r'(?:at|by)\s+(\d{1,2}[.:]\d{2}\s*(?:am|pm)?|\d{1,2}\s*(?:am|pm))',
+                    lower_msg
+                )
+                time_str = time_match.group(1).replace(".", ":") if time_match else None
+                if not time_str:
+                    # Fall back to model's hour/minute
+                    args = fc.get("arguments", {})
+                    h, m = int(args.get("hour", 0)) % 24, int(args.get("minute", 0))
+                    period = "AM" if h < 12 else "PM"
+                    dh = h if h <= 12 else h - 12
+                    if dh == 0:
+                        dh = 12
+                    time_str = f"{dh}:{m:02d} {period}"
+                # Extract title from query
+                title_match = re.search(r'(?:to|for)\s+(.+?)(?:\s+at\s+|\s+by\s+|$)', lower_msg)
+                title = title_match.group(1).strip() if title_match else "Reminder"
+                fc["name"] = "create_reminder"
+                fc["arguments"] = {"title": title, "time": time_str}
+
     # Execute skills from function calls
     skill_results = []
     for fc in result.get("function_calls", []):

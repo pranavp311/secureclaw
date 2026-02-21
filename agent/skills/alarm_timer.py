@@ -84,6 +84,9 @@ class SetAlarmSkill(Skill):
     def execute(self, hour: int, minute: int = 0, **kwargs) -> SkillResult:
         hour = int(hour)
         minute = int(minute)
+        # Clamp out-of-range values from FunctionGemma hallucinations
+        hour = hour % 24
+        minute = max(0, min(59, minute))
 
         if platform.system() == "Darwin":
             time_str, created = _set_macos_alarm(hour, minute)

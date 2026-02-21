@@ -158,8 +158,10 @@ _FINANCIAL_KEYWORDS = re.compile(
 )
 
 _PASSWORD_KEYWORDS = re.compile(
-    r"\b(?:(?:my\s+)?password\s+is|passwd[\s:]+|"
-    r"secret[\s:]+|api[\s_\-]?key[\s:]+|token[\s:]+|"
+    r"\b(?:(?:my\s+)?password\s+is|(?:my\s+)?password\s+to|"
+    r"change\s+(?:my\s+)?password|reset\s+(?:my\s+)?password|"
+    r"new\s+password|update\s+(?:my\s+)?password|"
+    r"passwd[\s:]+|secret[\s:]+|api[\s_\-]?key[\s:]+|token[\s:]+|"
     r"private[\s_\-]?key[\s:]+|credentials?[\s:]+)\b",
     re.I
 )
