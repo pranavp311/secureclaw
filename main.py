@@ -304,10 +304,11 @@ class SmartRouter:
                     out_min = call_args.get("minute")
                     if isinstance(out_hour, int) and isinstance(out_min, int):
                         if out_hour != q_hour or out_min != q_min:
-                            return PostInferenceResult(
-                                True, confidence,
-                                f"alarm mismatch: query={q_hour}:{q_min:02d} vs output={out_hour}:{out_min:02d}"
-                            )
+                            # Auto-correct: FunctionGemma picked the right tool
+                            # but hallucinated wrong values. Fix them in-place
+                            # instead of escalating to cloud.
+                            call_args["hour"] = q_hour
+                            call_args["minute"] = q_min
 
             elif call_name == "set_timer":
                 m = _MINUTES_PATTERN.search(query)
@@ -315,10 +316,8 @@ class SmartRouter:
                     q_mins = int(m.group(1))
                     out_mins = call_args.get("minutes")
                     if isinstance(out_mins, int) and out_mins != q_mins:
-                        return PostInferenceResult(
-                            True, confidence,
-                            f"timer mismatch: query={q_mins} vs output={out_mins}"
-                        )
+                        # Auto-correct timer value
+                        call_args["minutes"] = q_mins
 
             elif call_name == "play_music":
                 pm = _PLAY_PATTERN.search(query)

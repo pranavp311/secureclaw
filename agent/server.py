@@ -13,6 +13,7 @@ import asyncio
 import json
 import os
 import sys
+import threading
 import time
 from contextlib import asynccontextmanager
 from dataclasses import asdict
@@ -57,8 +58,11 @@ def _register_all_skills():
 
 # ---------------------------------------------------------------------------
 # Lazy-load the hybrid router (heavy — loads FunctionGemma model)
+# The Cactus C library is NOT thread-safe. We must serialize all inference
+# calls with a lock to prevent concurrent cactus_reset / cactus_complete.
 # ---------------------------------------------------------------------------
 _hybrid_router = None
+_model_lock = threading.Lock()
 
 
 def _get_hybrid_router():
@@ -148,22 +152,21 @@ def process_chat(
     all_tools = registry.get_tool_definitions()
     tools = [t for t in all_tools if t["name"] in CORE_TOOLS]
 
-    # Run hybrid router
+    # Run hybrid router — acquire lock to serialize Cactus model access
     generate_hybrid = _get_hybrid_router()
 
-    # Apply routing override by manipulating confidence threshold
-    if effective_override == "local":
-        result = generate_hybrid(messages, tools, confidence_threshold=0.01)
-        if result.get("source") != "on-device":
-            result["source"] = "on-device (privacy-forced)"
-    elif effective_override == "cloud":
-        # Import cloud generator directly
-        sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-        from main import generate_cloud
-        result = generate_cloud(messages, tools)
-        result["source"] = "cloud (user-forced)"
-    else:
-        result = generate_hybrid(messages, tools)
+    with _model_lock:
+        if effective_override == "local":
+            result = generate_hybrid(messages, tools, confidence_threshold=0.01)
+            if result.get("source") != "on-device":
+                result["source"] = "on-device (privacy-forced)"
+        elif effective_override == "cloud":
+            sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+            from main import generate_cloud
+            result = generate_cloud(messages, tools)
+            result["source"] = "cloud (user-forced)"
+        else:
+            result = generate_hybrid(messages, tools)
 
     # Execute skills from function calls
     skill_results = []
