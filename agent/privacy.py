@@ -118,14 +118,26 @@ _PATTERNS: List[Tuple[PIIType, re.Pattern, float]] = [
     # Street address (number + street name + type)
     (PIIType.STREET_ADDRESS,
      re.compile(
-         r"\b\d{1,6}\s+(?:[A-Z][a-z]+\s+){1,3}"
+         r"\b\d{1,6}[A-Za-z]?\s+(?:[A-Z][a-z]+\s+){1,4}"
          r"(?:St(?:reet)?|Ave(?:nue)?|Blvd|Boulevard|Dr(?:ive)?|"
          r"Ln|Lane|Rd|Road|Way|Ct|Court|Pl(?:ace)?|Cir(?:cle)?|"
-         r"Pkwy|Parkway|Terr(?:ace)?|Hwy|Highway)"
+         r"Pkwy|Parkway|Terr(?:ace)?|Hwy|Highway|Close|Crescent|Walk)"
          r"\.?\b",
          re.I
      ),
-     0.80),
+     0.85),
+
+    # Postal / ZIP codes (US, UK, Singapore, Australia, Canada, EU)
+    (PIIType.STREET_ADDRESS,
+     re.compile(
+         r"\b(?:"
+         r"\d{5}(?:-\d{4})?|"                  # US ZIP: 12345 or 12345-6789
+         r"\d{6}|"                              # SG/IN postal: 085201
+         r"[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}|" # UK: SW1A 1AA
+         r"[A-Z]\d[A-Z]\s*\d[A-Z]\d"            # CA: K1A 0B1
+         r")\b"
+     ),
+     0.70),
 ]
 
 # Keyword-based patterns (lower confidence, context-dependent)
@@ -155,7 +167,9 @@ _PASSWORD_KEYWORDS = re.compile(
 _NAME_CONTEXT_KEYWORDS = re.compile(
     r"\b(?:my\s+(?:full\s+)?name\s+is|i\s+am\s+called|"
     r"my\s+(?:real|legal)\s+name|"
-    r"my\s+(?:home|mailing|billing)\s+address)\b",
+    r"my\s+(?:home|mailing|billing)\s+address|"
+    r"i\s+live\s+at|i\s+stay\s+at|my\s+address\s+is|"
+    r"i\s+reside\s+at|deliver\s+to|ship\s+to)\b",
     re.I
 )
 
@@ -258,6 +272,12 @@ def scan_privacy(text: str) -> PrivacyResult:
 
     has_high = any(m.pii_type in high_risk_types for m in matches)
     has_medium = any(m.pii_type in medium_risk_types for m in matches)
+
+    # Upgrade to HIGH if address + context ("I live at") or address + postal code
+    address_matches = [m for m in matches if m.pii_type == PIIType.STREET_ADDRESS]
+    name_ctx_matches = [m for m in matches if m.pii_type == PIIType.NAME_CONTEXT]
+    if len(address_matches) >= 2 or (address_matches and name_ctx_matches):
+        has_high = True
     high_confidence_count = sum(1 for m in matches if m.confidence >= 0.85)
 
     if has_high or high_confidence_count >= 3:
