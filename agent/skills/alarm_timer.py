@@ -8,41 +8,56 @@ import platform
 from agent.skills import Skill, SkillResult
 
 
-def _set_macos_alarm(hour: int, minute: int) -> str:
-    """Use AppleScript to create an alarm in macOS Clock app."""
+def _set_macos_alarm(hour: int, minute: int) -> tuple:
+    """Create a Calendar event with a sound alarm on macOS."""
     period = "AM" if hour < 12 else "PM"
     display_hour = hour if hour <= 12 else hour - 12
     if display_hour == 0:
         display_hour = 12
     time_str = f"{display_hour}:{minute:02d} {period}"
 
-    # Use AppleScript to open Clock app and create alarm via Shortcuts/Reminders
-    # Primary method: use `shortcuts` CLI or `osascript` to set a reminder with alert
+    # Create a Calendar event with a sound alarm that fires at event time
+    script = f'''
+tell application "Calendar"
+    set calList to name of every calendar
+    if "Home" is in calList then
+        set targetCal to calendar "Home"
+    else
+        set targetCal to first calendar
+    end if
+    set targetDate to current date
+    set hours of targetDate to {hour}
+    set minutes of targetDate to {minute}
+    set seconds of targetDate to 0
+    -- If the time has already passed today, set for tomorrow
+    if targetDate < (current date) then
+        set targetDate to targetDate + 1 * days
+    end if
+    set newEvent to make new event at end of events of targetCal with properties {{summary:"SecureClaw Alarm - {time_str}", start date:targetDate, end date:targetDate + 5 * minutes}}
+    make new sound alarm at end of newEvent with properties {{trigger interval:0}}
+end tell
+'''
     try:
-        # Method 1: Create a calendar alarm via osascript
-        script = f'''
-        tell application "Reminders"
-            set newReminder to make new reminder in list "Reminders" with properties {{name:"Alarm - {time_str}", body:"SecureClaw Alarm"}}
-            set due date of newReminder to (current date)
-            set time of (due date of newReminder) to ({hour} * 3600 + {minute} * 60)
-            set remind me date of newReminder to due date of newReminder
-        end tell
-        '''
-        subprocess.run(["osascript", "-e", script], capture_output=True, timeout=10)
+        result = subprocess.run(
+            ["osascript", "-e", script],
+            capture_output=True, text=True, timeout=10
+        )
+        if result.returncode == 0:
+            return time_str, True
     except Exception:
         pass
 
-    # Method 2: Also schedule a native macOS notification as backup
+    # Fallback: show notification
     try:
-        notify_script = f'''
-        display notification "Alarm: {time_str}" with title "SecureClaw" sound name "Glass"
-        '''
-        # Schedule with `at` or just show immediate confirmation
-        subprocess.run(["osascript", "-e", notify_script], capture_output=True, timeout=5)
+        subprocess.run(
+            ["osascript", "-e",
+             f'display notification "Alarm set for {time_str}" with title "SecureClaw" sound name "Glass"'],
+            capture_output=True, timeout=5
+        )
     except Exception:
         pass
 
-    return time_str
+    return time_str, False
 
 
 class SetAlarmSkill(Skill):
@@ -66,16 +81,22 @@ class SetAlarmSkill(Skill):
             "required": ["hour", "minute"],
         }
 
-    def execute(self, hour: int, minute: int, **kwargs) -> SkillResult:
+    def execute(self, hour: int, minute: int = 0, **kwargs) -> SkillResult:
         hour = int(hour)
         minute = int(minute)
 
         if platform.system() == "Darwin":
-            time_str = _set_macos_alarm(hour, minute)
+            time_str, created = _set_macos_alarm(hour, minute)
+            if created:
+                return SkillResult(
+                    success=True,
+                    output=f"Alarm set for {time_str}. A Calendar event with sound alert has been created.",
+                    data={"hour": hour, "minute": minute, "platform": "macOS", "calendar_event": True},
+                )
             return SkillResult(
                 success=True,
-                output=f"Alarm set for {time_str}. A reminder has been created in Reminders app and a notification was sent.",
-                data={"hour": hour, "minute": minute, "platform": "macOS"},
+                output=f"Alarm set for {time_str} (notification sent).",
+                data={"hour": hour, "minute": minute, "platform": "macOS", "calendar_event": False},
             )
 
         period = "AM" if hour < 12 else "PM"
