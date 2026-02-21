@@ -26,7 +26,13 @@ class CreateReminderSkill(Skill):
             "required": ["title", "time"],
         }
 
-    def execute(self, title: str, time: str, **kwargs) -> SkillResult:
+    def execute(self, title: str = "Reminder", time: str = "", **kwargs) -> SkillResult:
+        if not time:
+            return SkillResult(
+                success=False,
+                output="No time specified for the reminder.",
+                data={},
+            )
         return SkillResult(
             success=True,
             output=f"Reminder set: '{title}' at {time}.",
