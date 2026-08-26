@@ -1,260 +1,252 @@
-<img src="assets/banner.png" alt="SecureClaw Banner" style="border-radius: 30px; width: 100%;">
+<p align="center">
+  <img src="assets/secureclaw-hero.png" alt="SecureClaw technical routing illustration showing sensitive requests staying local and complex work moving to the cloud" width="100%" />
+</p>
 
-# SecureClaw — Privacy-First Hybrid AI Agent
+<h1 align="center">SecureClaw</h1>
 
-**Private AI inference, by default.**
+<p align="center">
+  <strong>Private AI inference, by default.</strong><br />
+  An action-taking AI agent that keeps sensitive requests on-device and reaches for the cloud only when the task calls for it.
+</p>
 
-SecureClaw is a multi-platform AI agent that combines on-device FunctionGemma inference with Gemini cloud fallback, adding a **privacy-first confidential layer** that detects sensitive data and forces local execution when PII is present. Users always retain override control across web, mobile, and Telegram interfaces.
+<p align="center">
+  <a href="#quick-start"><img alt="Runtime" src="https://img.shields.io/badge/runtime-Python%20%2B%20React-ff6600?style=flat-square&labelColor=111111" /></a>
+  <img alt="Local model" src="https://img.shields.io/badge/local-FunctionGemma%20270M-ff6600?style=flat-square&labelColor=111111" />
+  <img alt="Cloud model" src="https://img.shields.io/badge/cloud-Gemini%20Flash-a5b4fc?style=flat-square&labelColor=111111" />
+  <img alt="Interfaces" src="https://img.shields.io/badge/interfaces-Web%20%C2%B7%20Mobile%20%C2%B7%20Telegram-34d399?style=flat-square&labelColor=111111" />
+</p>
 
----
+> [!NOTE]
+> SecureClaw was built at the Google DeepMind × Cactus Compute Hackathon. It is a working local-first prototype, not a production security boundary.
 
-## Technical Architecture
+## What is SecureClaw?
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                    User Interfaces                       │
-│  ┌──────────┐  ┌──────────────┐  ┌───────────────────┐  │
-│  │ React Web│  │ React Native │  │  Telegram Bot      │  │
-│  │ (SecureClaw│ │ Mobile App   │  │  (python-telegram) │  │
-│  │  + Canvas │  │ (Expo)       │  │                    │  │
-│  │  Dots BG) │  │              │  │                    │  │
-│  └─────┬─────┘  └──────┬───────┘  └────────┬──────────┘  │
-│        │               │                   │              │
-│        ▼               ▼                   ▼              │
-│  ┌─────────────────────────────────────────────────┐     │
-│  │           FastAPI / Flask Backend               │     │
-│  │  REST + WebSocket endpoints                     │     │
-│  └──────────────────────┬──────────────────────────┘     │
-│                         │                                 │
-│  ┌──────────────────────▼──────────────────────────┐     │
-│  │         Phase 0: Privacy Layer                   │     │
-│  │  Regex PII detection (email, SSN, CC, phone,    │     │
-│  │  passwords, health terms, financial data)        │     │
-│  │  → Risk: LOW / MEDIUM / HIGH                     │     │
-│  │  → HIGH/MEDIUM → force local execution           │     │
-│  └──────────────────────┬──────────────────────────┘     │
-│                         │                                 │
-│  ┌──────────────────────▼──────────────────────────┐     │
-│  │         SmartRouter (Two-Phase Hybrid)           │     │
-│  │                                                   │     │
-│  │  Phase 1: Pre-inference heuristics               │     │
-│  │  • Multi-tool detection (keyword + embedding)    │     │
-│  │  • Query complexity scoring                       │     │
-│  │  • Semantic similarity to known-hard queries      │     │
-│  │  • Blended score → route to local or cloud       │     │
-│  │                                                   │     │
-│  │  Phase 2: Post-inference validation              │     │
-│  │  • Schema validation (types, required params)    │     │
-│  │  • Argument sanity checks (ranges, formats)      │     │
-│  │  • Query-output consistency (time/value match)   │     │
-│  │  • High-confidence trust (≥0.90 bypasses         │     │
-│  │    multi-tool escalation)                         │     │
-│  │  • Retry once before cloud fallback              │     │
-│  └──────────┬───────────────────┬──────────────────┘     │
-│             │                   │                         │
-│    ┌────────▼────────┐ ┌───────▼─────────┐               │
-│    │  FunctionGemma  │ │  Gemini Cloud   │               │
-│    │  (on-device)    │ │  (2.5/2.0 Flash)│               │
-│    │  270M params    │ │  REST API       │               │
-│    │  ~1-2s latency  │ │  ~2-4s latency  │               │
-│    │  Private ✓      │ │  Higher accuracy│               │
-│    └────────┬────────┘ └───────┬─────────┘               │
-│             └─────────┬────────┘                         │
-│                       ▼                                   │
-│  ┌─────────────────────────────────────────────────┐     │
-│  │            Skill Execution Layer                 │     │
-│  │  14 registered skills with real OS integration:  │     │
-│  │  • set_alarm → macOS Reminders + notification   │     │
-│  │  • get_weather → wttr.in live data              │     │
-│  │  • web_browse → HTTP fetch + HTML extraction    │     │
-│  │  • file_read/write → sandboxed workspace        │     │
-│  │  • calendar_add/list/delete → local JSON store  │     │
-│  │  • send_message, play_music, set_timer, etc.    │     │
-│  └─────────────────────────────────────────────────┘     │
-└─────────────────────────────────────────────────────────┘
+SecureClaw is a hybrid AI agent for real-world actions: set an alarm, check the weather, create a reminder, find a contact, send a message, or play music. Before inference begins, a lightweight privacy layer classifies the request. Sensitive prompts stay on the device in **Auto** mode; ordinary prompts move through a two-phase router that balances local speed and privacy against cloud capability.
+
+The product exposes the same routing idea across a React web app, an Expo mobile client, and a Telegram bot. Every response can show where inference ran, how confident the model was, and what privacy risk was detected. **Auto**, **Local**, and **Cloud** controls leave the final choice with the user.
+
+## The routing contract
+
+| Mode | What SecureClaw does | Data boundary |
+| --- | --- | --- |
+| **Auto + sensitive** | PII detection pins inference to FunctionGemma | Prompt stays on-device for inference |
+| **Auto + routine** | SmartRouter attempts local inference, validates the tool call, and retries once if needed | Cloud is used only after a routing or validation escalation |
+| **Local** | Skips cloud routing and runs FunctionGemma directly | No cloud-model request |
+| **Cloud** | Sends the request to Gemini Flash for function calling | Prompt is sent to the configured Gemini API |
+
+The privacy scanner recognizes email addresses, phone numbers, SSNs, Luhn-valid credit cards, addresses, dates of birth, passport references, passwords, and health or financial language. Results are classified as `low`, `medium`, or `high`; both `medium` and `high` select local inference in Auto mode.
+
+> [!IMPORTANT]
+> The Cloud override is explicit consent to cloud inference, even when PII is detected. Skill execution can also have its own network or operating-system side effects. SecureClaw's privacy routing governs model inference; it does not sandbox every downstream action.
+
+## How it works
+
+```mermaid
+flowchart LR
+    UI["Web · Mobile · Telegram"] --> Gateway["FastAPI gateway"]
+    Gateway --> Privacy["Phase 0 · Privacy scan"]
+    Privacy --> Choice{"Effective mode"}
+
+    Choice -->|"Sensitive / Local"| Local["FunctionGemma 270M\nvia Cactus"]
+    Choice -->|"Auto"| Pre["Phase 1 · SmartRouter"]
+    Choice -->|"Cloud"| Cloud["Gemini Flash"]
+
+    Pre -->|"Routine"| Local
+    Pre -->|"Complex"| Cloud
+    Local --> Gate["Phase 2 · Schema + consistency gate"]
+    Gate -->|"Valid"| Skills["Skill registry"]
+    Gate -->|"Retry fails"| Cloud
+    Cloud --> Skills
+    Skills --> Result["OS action · live data · response"]
 ```
 
----
+### Phase 0 — privacy before routing
 
-## Rubric 1: Hybrid Routing Algorithm
+The zero-dependency scanner runs before model selection. It combines format detection with contextual signals and validates card numbers with the Luhn algorithm. The `/api/privacy` endpoint can also return a redacted preview without invoking a model.
 
-**SmartRouter** — a two-phase routing system inlined in `main.py`:
+### Phase 1 — route by task shape
 
-### Phase 1: Pre-Inference Heuristics
-- **Multi-tool detection**: Keyword patterns (`"and"`, `"then"`, `"also"`) combined with semantic embedding similarity to known multi-tool queries using `cactus_embed` + cosine similarity.
-- **Complexity scoring**: Counts conjunctions, tool-keyword matches, and query length to estimate if FunctionGemma can handle it.
-- **Similarity scoring**: Vector store of seed queries (known-hard examples) compared via embedding distance.
-- **Blended decision**: Weighted combination (55% multi-tool, 20% similarity, 25% complexity) against a 0.55 threshold.
+SmartRouter scores conjunctions, action verbs, tool count, query length, numeric arguments, and—when the optional embedding model is installed—semantic similarity to known hard requests. Straightforward work stays local; multi-action and complex requests can move to Gemini.
 
-### Phase 2: Post-Inference Validation
-- **Schema validation**: Checks function name exists in tool set, required params present, types match.
-- **Argument sanity**: Rejects negative values, out-of-range hours/minutes, hallucinated dates, empty strings.
-- **Query-output consistency**: Parses expected values from the query (e.g., "7am" → hour=7, minute=0) and compares with model output. Catches FunctionGemma errors where values are valid but wrong.
-- **High-confidence trust**: When FunctionGemma returns ≥90% confidence with valid output, trusts it even if multi-tool heuristics flagged the query — prevents unnecessary cloud escalation.
-- **Retry before fallback**: One retry on validation failure before escalating to Gemini.
+### Phase 2 — trust, then verify
 
-### Privacy-Aware Routing (Phase 0)
-- Regex-based PII scanner detects email, phone, SSN, credit card (with Luhn check), IP addresses, passwords, health/financial terms.
-- Risk levels: LOW (no PII) → auto routing, MEDIUM/HIGH → forces local execution regardless of confidence.
-- User can override via UI toggle (Auto / Local / Cloud).
+Local output is checked against the available tool schema, required argument types, valid time ranges, empty values, and query/output consistency. Alarm and timer values can be corrected from the original request. Invalid output gets one local retry before cloud fallback.
 
----
+## What it can do
 
-## Rubric 2: End-to-End Product
+| Area | Actions |
+| --- | --- |
+| **Personal automation** | Set alarms and timers, create reminders, play music |
+| **Communication** | Search local contacts and send messages |
+| **Live information** | Fetch current weather |
+| **Extensible adapters** | Web browsing, sandboxed file operations, and local calendar CRUD are included in the registry |
 
-SecureClaw executes function calls to solve **real-world problems** across three platforms:
+The primary gateway currently exposes seven core actions to the inference pass. The extended browser, file, and calendar adapters are registered for the next routing pass but are not yet selected by the core model pipeline.
 
-### Web UI (`web/`)
-- React + TailwindCSS + Vite
-- **Interactive canvas dots background** that reacts to cursor (dots enlarge and brighten) and pulses orange during loading (center-outward ripple)
-- "Secure**Claw**" branding with black/orange theme matching mobile app
-- Privacy badges (Private / Caution / Sensitive), routing indicators (on-device / cloud), latency display
-- Tools bottom-sheet modal for selecting active skills
-- Routing override toggle (Auto / Local / Cloud)
-- WebSocket real-time chat with REST fallback
+## Interfaces
 
-### Mobile App (`mobile/`)
-- React Native + Expo
-- Same black/orange design language, interactive dots background (touch-reactive)
-- Two-step flow: **Analysis** (shows confidence, recommendation, local vs cloud choice) → **Execute** (runs selected mode)
-- Cloud provider selection (Gemini / OpenClaw)
-- Confidence threshold slider
-- Tool selection settings modal
+| Surface | Experience |
+| --- | --- |
+| **Web** | React, Vite, and Tailwind UI with a responsive dot field, routing override, privacy badges, tool-call inspection, latency, and WebSocket updates |
+| **Mobile** | Expo client with a two-step **Analyze → Execute** flow, configurable confidence threshold, tool selection, and Gemini/OpenClaw provider options |
+| **Telegram** | Bot commands for `/auto`, `/local`, `/cloud`, `/privacy`, and `/skills`, with per-user routing state |
 
-### Telegram Bot (`agent/telegram_bot.py`)
-- Commands: `/start`, `/skills`, `/local`, `/cloud`, `/auto`, `/privacy`
-- Privacy badges and routing indicators in responses
-- Per-user routing override state
+## Quick start
 
-### Real OS Integration
-- **set_alarm**: Creates a Reminder in macOS Reminders app with alert + shows native notification with sound
-- **get_weather**: Fetches live weather data from wttr.in
-- **web_browse**: HTTP fetch with HTML-to-text extraction and summarization
-- **file_read/write/list**: Sandboxed file operations in agent workspace
-- **calendar**: Local JSON-backed calendar with add/list/delete
+### Requirements
 
-### Backend (`agent/server.py`)
-- FastAPI with REST (`/api/chat`, `/api/skills`, `/api/privacy`) and WebSocket (`/ws`) endpoints
-- Flask backend (`app/routes.py`) for mobile app compatibility (`/api/analyze`, `/api/execute`)
-- Privacy layer integrated as Phase 0 in the routing pipeline
-- Skill registry with 14 auto-registered tools
+- macOS for the complete demo experience and native Calendar, Reminders, Contacts, Messages, notifications, and Music integrations
+- Python 3.12 (required by the Cactus setup script)
+- Node.js and npm
+- A Gemini API key for Auto fallback or Cloud mode
+- A Telegram bot token only if you plan to run the Telegram interface
 
----
+### 1. Clone SecureClaw and Cactus
 
-## Rubric 3: Voice-to-Action
-
-The architecture is designed for low-latency voice integration:
-
-- **FunctionGemma on-device inference** completes in ~1-2 seconds, enabling near-real-time voice-to-action pipelines when combined with `cactus_transcribe`.
-- **Privacy layer runs in <1ms** (pure regex), adding zero perceptible latency to the voice pipeline.
-- **Skill execution is immediate** — alarm, timer, and reminder skills trigger OS-level actions (AppleScript) without network round-trips.
-- The mobile app's touch-reactive dots background provides visual feedback during processing, and the web UI's orange pulse animation indicates active inference — both designed for voice interaction UX where visual loading state matters.
-
----
-
-## Project Structure
-
-```
-secureclaw/
-├── main.py                    # Hybrid router (generate_hybrid) — leaderboard submission
-├── benchmark.py               # Objective scoring
-├── submit.py                  # Leaderboard submission
-├── smart_router.py            # SmartRouter standalone reference
-├── server.py                  # Flask entry point for mobile backend
-├── run_agent.sh               # Run scripts (server/telegram/dev/build)
-├── agent/
-│   ├── __init__.py
-│   ├── privacy.py             # Regex PII detector + risk scoring
-│   ├── server.py              # FastAPI backend (web UI + API)
-│   ├── telegram_bot.py        # Telegram bot
-│   ├── requirements.txt
-│   └── skills/
-│       ├── __init__.py        # Skill base class + registry
-│       ├── alarm_timer.py     # macOS alarm + timer (AppleScript)
-│       ├── browse.py          # Web browsing + HTML extraction
-│       ├── calendar_mgr.py    # Calendar CRUD (local JSON)
-│       ├── contacts.py        # Contact search
-│       ├── files.py           # Sandboxed file I/O
-│       ├── messaging.py       # Message sending
-│       ├── reminders.py       # Reminders + music playback
-│       └── weather.py         # Live weather (wttr.in)
-├── app/
-│   ├── __init__.py            # Flask app factory
-│   ├── routes.py              # Mobile API (/api/analyze, /api/execute)
-│   ├── static/                # Flask static assets
-│   └── templates/             # Flask HTML templates
-├── mobile/
-│   ├── App.tsx                # React Native entry point
-│   ├── package.json
-│   └── src/
-│       ├── api.ts             # Backend API client
-│       ├── theme.ts           # Black/orange design tokens
-│       ├── types.ts           # TypeScript interfaces
-│       └── components/
-│           ├── AnalysisCard.tsx
-│           ├── DotsBackground.tsx
-│           ├── Header.tsx
-│           ├── InputBar.tsx
-│           ├── LoadingDots.tsx
-│           ├── ResultCard.tsx
-│           └── ToolsModal.tsx
-└── web/
-    ├── package.json
-    ├── vite.config.ts
-    ├── tailwind.config.js
-    ├── index.html
-    └── src/
-        ├── App.tsx            # Main app with SecureClaw branding
-        ├── main.tsx
-        ├── index.css          # Black/orange theme CSS
-        ├── hooks/useChat.ts   # WebSocket + REST chat hook
-        └── components/
-            ├── ChatPanel.tsx
-            ├── DotsBackground.tsx  # Canvas interactive dots
-            ├── OverrideToggle.tsx
-            ├── PrivacyBadge.tsx
-            ├── RoutingIndicator.tsx
-            └── SkillPanel.tsx
-```
-
----
-
-## Quick Start
-
-### Prerequisites
-- macOS with Cactus SDK installed (`cactus build --python`)
-- FunctionGemma weights downloaded (`cactus download google/functiongemma-270m-it --reconvert`)
-- Gemini API key (`export GEMINI_API_KEY="your-key"`)
-
-### Web UI
 ```bash
-cd web && npm install && npm run build
-cd .. && pip install -r agent/requirements.txt
-./run_agent.sh server
-# Open http://localhost:8000
+git clone https://github.com/pranavp311/secureclaw.git
+cd secureclaw
+git clone https://github.com/cactus-compute/cactus.git cactus
 ```
 
-### Mobile App
+### 2. Build local inference and download the models
+
+```bash
+cd cactus
+source ./setup
+cactus build --python
+cactus download google/functiongemma-270m-it --reconvert
+
+# Optional: enables semantic similarity in SmartRouter
+cactus download nomic-ai/nomic-embed-text-v2-moe --reconvert
+cd ..
+```
+
+SecureClaw expects the local model at `cactus/weights/functiongemma-270m-it`. If the embedding model is absent, routing gracefully falls back to its non-semantic heuristics.
+
+### 3. Install the app
+
+```bash
+pip install -r agent/requirements.txt
+npm --prefix web install
+npm --prefix web run build
+```
+
+### 4. Run the web app
+
+```bash
+export GEMINI_API_KEY="your-gemini-key"
+./run_agent.sh server
+```
+
+Open [localhost:8000](http://localhost:8000). macOS may ask for permission the first time SecureClaw controls Calendar, Reminders, Contacts, Messages, notifications, or Music.
+
+For frontend hot reload, use:
+
+```bash
+./run_agent.sh dev
+```
+
+The Vite client runs at [localhost:5173](http://localhost:5173) and proxies API and WebSocket traffic to the gateway on port `8000`.
+
+## Try the privacy loop
+
+Start in **Auto** mode and compare these request shapes:
+
+```text
+What is the weather in Singapore?
+
+My email is person@example.com; set an alarm for 7:30 AM.
+
+Find Jordan and send them a message saying I will be ten minutes late.
+```
+
+The first request is eligible for ordinary hybrid routing. The second is classified as sensitive and forced local. The third exercises the router's multi-action detection and can escalate to Gemini for a more reliable tool plan.
+
+## API
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `POST` | `/api/chat` | Privacy scan, route, infer, and execute a skill |
+| `GET` | `/api/skills` | List registered skill schemas |
+| `POST` | `/api/privacy` | Classify and redact text without model inference |
+| `GET` | `/api/health` | Return gateway and skill-registry health |
+| `WS` | `/ws` | Real-time chat transport |
+
+Example privacy check:
+
+```bash
+curl http://localhost:8000/api/privacy \
+  -H 'Content-Type: application/json' \
+  -d '{"text":"Email me at person@example.com"}'
+```
+
+## Optional clients
+
+### Mobile
+
+The mobile client uses the Flask analysis/execution API. Update `BASE_URL` in `mobile/src/api.ts` for your simulator or physical device, then run:
+
 ```bash
 pip install flask
-GEMINI_API_KEY="your-key" python server.py --port 5001
-# In another terminal:
-cd mobile && npm install && npx expo start
+python server.py --port 5001
+
+# In another terminal
+npm --prefix mobile install
+npm --prefix mobile start
 ```
 
-### Telegram Bot
+### Telegram
+
 ```bash
-export TELEGRAM_BOT_TOKEN="your-token"
+export TELEGRAM_BOT_TOKEN="your-telegram-token"
+export GEMINI_API_KEY="your-gemini-key"
 ./run_agent.sh telegram
 ```
 
-### Leaderboard Submission
-```bash
-python submit.py --team "YourTeamName" --location "YourCity"
+## Repository map
+
+```text
+secureclaw/
+├── main.py                 # Inlined SmartRouter + local/cloud inference
+├── smart_router.py         # Standalone routing reference
+├── benchmark.py            # Routing evaluation suite
+├── agent/
+│   ├── privacy.py          # PII classification and redaction
+│   ├── server.py           # FastAPI gateway, WebSocket, skill execution
+│   ├── telegram_bot.py     # Telegram interface
+│   └── skills/             # OS, web, workspace, and calendar adapters
+├── web/                    # React + Vite desktop web client
+├── mobile/                 # React Native + Expo client
+├── app/                    # Flask API used by the mobile flow
+└── assets/                 # README and product artwork
 ```
 
----
+## Evaluation
 
-## Team
+With Cactus built and the models available, run the local benchmark suite:
 
-Built at the Google DeepMind × Cactus Compute Hackathon.
+```bash
+python benchmark.py
+```
+
+The benchmark covers single- and multi-tool requests, argument fidelity, routing accuracy, latency, and cloud fallback behavior. `submit.py` packages the same hybrid entry point for the hackathon leaderboard.
+
+## Privacy and safety
+
+SecureClaw is designed to make its inference boundary visible, but the current implementation is still a prototype:
+
+- PII detection is heuristic and can produce false positives or miss sensitive context.
+- The gateway uses permissive CORS and has no authentication; run it only on a trusted local network.
+- Local inference is serialized because the Cactus C runtime is not thread-safe in this integration.
+- Native action skills depend on macOS automation permissions and should be reviewed before real-world use.
+- The web tool-selection sheet is currently presentational; the primary gateway selects from its server-side core tool set.
+- The mobile API base URL is configured in source and must be changed for each development environment.
+
+Before production use, add authentication, encrypted state, explicit network policy, scoped skill permissions, audit logs, stronger PII detection, and adversarial routing tests.
+
+## Hackathon
+
+SecureClaw was created for the **Google DeepMind × Cactus Compute Hackathon** as an exploration of a simple idea: an AI agent should not have to choose between useful actions and a legible privacy boundary.
+
+The generated hero artwork uses SecureClaw's own black, graphite, orange, green, and indigo design tokens. The protected local core and the deliberately narrow cloud filament mirror the product's routing model.
